@@ -1,0 +1,74 @@
+import icaro.infraestructura.recursosOrganizacion.recursoTrazas.ItfUsoRecursoTrazas;
+import icaro.infraestructura.recursosOrganizacion.recursoTrazas.imp.componentes.InfoTraza;
+import icaro.infraestructura.entidadesBasicas.procesadorCognitivo.*;
+import icaro.infraestructura.patronAgenteCognitivo.procesadorObjetivos.gestorTareas.ItfGestorTareas;
+import icaro.infraestructura.entidadesBasicas.PerformativaUsuario;
+import icaro.infraestructura.entidadesBasicas.comunicacion.*
+import icaro.aplicaciones.agentes.AgenteAplicacion5.objetivos.*;
+import icaro.aplicaciones.informacion.gestionCitas.*;
+import icaro.aplicaciones.agentes.AgenteAplicacion5.tareas.*;
+import icaro.aplicaciones.informacion.i5.*;
+import icaro.aplicaciones.informacion.Dasi.*;
+import icaro.aplicaciones.agentes.AgenteAplicacion5.objetivos.*;
+
+
+
+global ItfGestorTareas gestorTareas;
+global ItfUsoRecursoTrazas recursoTrazas;
+global String agentId;
+
+
+
+// =======================================================================
+rule "Creacion de los objectivos iniciales"
+when 
+then 
+TareaSincrona tarea = gestorTareas.crearTareaSincrona(InicializarInfoWorkMem.class);
+    tarea.ejecutar();
+recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName()); 
+end
+
+// =======================================================================
+
+
+// =======================================================================
+rule "Regla de focalizacion en objetivo IdenDesp"
+ when
+    $f:Focus(foco == null )
+    $obj:IdenDesp()
+ then
+    $f.setFoco($obj);
+    recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName());
+    update($f);
+end
+// =======================================================================
+
+
+//=======================================================================
+rule " Objetivo IdenDesp pasa a solving "
+  when
+    $obj:IdenDesp(state==Objetivo.PENDING)
+    Focus(foco == $obj)
+  then
+    $obj.setSolving();
+    update($obj);
+end
+// =======================================================================
+
+
+
+// =======================================================================
+rule " Frase contiene anotacion Despedia "
+    when
+        $obj:IdenDesp(state==Objetivo.SOLVING)
+        Focus(foco == $obj)
+        notif:Notificacion(identInterlc:identNotificador, tipoNotificacion==VocabularioDasi.NOMBRE_TIPO_NOTIFICACION_DESPEDIDA)
+    then
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Se ejecuta la tarea : EnviMens ",InfoTraza.NivelTraza.debug));
+      TareaSincrona tarea = gestorTareas.crearTareaSincrona(EnviMens.class); 
+      tarea.ejecutar(VocabularioGestionCitas.IdentRecursoComunicacionChat);
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Realizando el objetivo : "+$obj.getgoalId()+"  Ejecutando la tarea : "+ tarea.getIdentTarea() ,InfoTraza.NivelTraza.debug));
+      recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName());    
+end
+// =======================================================================
+

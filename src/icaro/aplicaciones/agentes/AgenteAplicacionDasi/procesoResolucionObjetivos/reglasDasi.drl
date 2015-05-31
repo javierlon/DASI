@@ -1,0 +1,346 @@
+import icaro.infraestructura.recursosOrganizacion.recursoTrazas.ItfUsoRecursoTrazas;
+import icaro.infraestructura.recursosOrganizacion.recursoTrazas.imp.componentes.InfoTraza;
+import icaro.infraestructura.entidadesBasicas.procesadorCognitivo.*;
+import icaro.infraestructura.patronAgenteCognitivo.procesadorObjetivos.gestorTareas.ItfGestorTareas;
+import icaro.infraestructura.entidadesBasicas.PerformativaUsuario;
+import icaro.infraestructura.entidadesBasicas.comunicacion.*
+import icaro.aplicaciones.agentes.AgenteAplicacionDasi.objetivos.*;
+import icaro.aplicaciones.informacion.gestionCitas.*;
+import icaro.aplicaciones.agentes.AgenteAplicacionDasi.tareas.*;
+import icaro.aplicaciones.informacion.Dasi.*;
+
+
+
+global ItfGestorTareas gestorTareas;
+global ItfUsoRecursoTrazas recursoTrazas;
+global String agentId;
+
+
+
+// =======================================================================
+rule "Creacion de los objectivos iniciales"
+when 
+then 
+TareaSincrona tarea = gestorTareas.crearTareaSincrona(InicializarInfoWorkMem.class);
+    tarea.ejecutar();
+recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName()); 
+end
+
+// =======================================================================
+
+
+// =======================================================================
+rule "Regla de focalizacion en objetivo ResponderDuda"
+ when
+    $f:Focus(foco == null )
+    $obj:ResponderDuda()
+ then
+    $f.setFoco($obj);
+    recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName());
+    update($f);
+end
+// =======================================================================
+
+
+//=======================================================================
+rule " Objetivo ResponderDuda pasa a solving "
+  when
+    $obj:ResponderDuda(state==Objetivo.PENDING)
+    Focus(foco == $obj)
+  then
+    $obj.setSolving();
+    update($obj);
+end
+// =======================================================================
+
+
+// =======================================================================
+rule " Presentar funcionalidad "
+   when
+      $obj:ResponderDuda(state==Objetivo.SOLVING)
+      Focus(foco == $obj)
+    then
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Se ejecuta la tarea : PresFunc",InfoTraza.NivelTraza.debug));
+      TareaSincrona tarea = gestorTareas.crearTareaSincrona(PresFunc.class); 
+      tarea.ejecutar(VocabularioGestionCitas.IdentRecursoComunicacionChat);
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Realizando el objetivo : "+$obj.getgoalId()+"  Ejecutando la tarea : "+ tarea.getIdentTarea() ,InfoTraza.NivelTraza.debug));
+      recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName());    
+end
+// =======================================================================
+
+
+// =======================================================================
+rule " Si recibe mensaje sobre componente "
+    timer(int: 5s)
+    when
+      $obj:ResponderDuda(state==Objetivo.SOLVING)
+      Focus(foco == $obj)
+      $notif : Notificacion(identInterlc : identNotificador , tipoNotificacion == "c") 
+      $a : Duda() 
+      eval($a.get_comp() == false)
+    then
+      modify( $a ) {
+      set_comp(true) 
+      }  
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Se ejecuta la tarea : IdentificarComponente ",InfoTraza.NivelTraza.debug));
+      TareaSincrona tarea = gestorTareas.crearTareaSincrona(IdentificarComponente.class); 
+      tarea.ejecutar(VocabularioGestionCitas.IdentRecursoComunicacionChat);
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Realizando el objetivo : "+$obj.getgoalId()+"  Ejecutando la tarea : "+ tarea.getIdentTarea() ,InfoTraza.NivelTraza.debug));
+      recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName());    
+      retract($notif);  
+end
+// =======================================================================
+
+
+// =======================================================================
+rule " Si recibe un nuevo mensaje sobre componente "
+   when
+      $obj:ResponderDuda(state==Objetivo.SOLVING)
+      Focus(foco == $obj)
+      $notif : Notificacion(identInterlc : identNotificador , tipoNotificacion == "c") 
+      $a : Duda() 
+      eval($a.get_comp() == true)
+    then        
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Se ejecuta la tarea : IdentificarComponente2 ",InfoTraza.NivelTraza.debug));
+      TareaSincrona tarea = gestorTareas.crearTareaSincrona(IdentificarComponente2.class); 
+      tarea.ejecutar(VocabularioGestionCitas.IdentRecursoComunicacionChat);
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Realizando el objetivo : "+$obj.getgoalId()+"  Ejecutando la tarea : "+ tarea.getIdentTarea() ,InfoTraza.NivelTraza.debug));
+      recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName());    
+      retract($notif);
+end
+// =======================================================================
+
+
+// =======================================================================
+rule " Si recibe un mensaje sobre componente pero falta la aplicacion "   
+   when
+      $obj:ResponderDuda(state==Objetivo.SOLVING)
+      Focus(foco == $obj)
+      $notif : Notificacion(identInterlc : identNotificador , tipoNotificacion == "c") 
+      $a : Duda() 
+      eval($a.get_apli() == false) 
+      eval($a.get_comp() == false)     
+   then 
+      modify( $a ) {
+      set_comp(true) 
+      }         
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Se ejecuta la tarea : IdentificarComponente3 ",InfoTraza.NivelTraza.debug));
+      TareaSincrona tarea = gestorTareas.crearTareaSincrona(IdentificarComponente3.class); 
+      tarea.ejecutar(VocabularioGestionCitas.IdentRecursoComunicacionChat);
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Realizando el objetivo : "+$obj.getgoalId()+"  Ejecutando la tarea : "+ tarea.getIdentTarea() ,InfoTraza.NivelTraza.debug));
+      recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName());    
+      retract($notif); 
+end
+// =======================================================================
+
+
+// =======================================================================
+rule " Si recibe mensaje sobre aplicacion "
+   timer(int: 5s)
+   when
+      $obj:ResponderDuda(state==Objetivo.SOLVING)
+      Focus(foco == $obj)
+      $notif : Notificacion(identInterlc : identNotificador , tipoNotificacion == "a") 
+      $a : Duda() 
+      eval($a.get_apli() == false)   
+   then
+      modify( $a ) {
+      set_apli(true) 
+      }  
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Se ejecuta la tarea : NombreAplicacion ",InfoTraza.NivelTraza.debug));
+      TareaSincrona tarea = gestorTareas.crearTareaSincrona(NombreAplicacion.class); 
+      tarea.ejecutar(VocabularioGestionCitas.IdentRecursoComunicacionChat);
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Realizando el objetivo : "+$obj.getgoalId()+"  Ejecutando la tarea : "+ tarea.getIdentTarea() ,InfoTraza.NivelTraza.debug));
+      recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName());    
+      retract($notif);
+end
+// =======================================================================
+
+
+// =======================================================================
+rule " Si recibe nuevamente un mensaje sobre aplicacion "
+   when
+      $obj:ResponderDuda(state==Objetivo.SOLVING)
+      Focus(foco == $obj)
+      $notif : Notificacion(identInterlc : identNotificador , tipoNotificacion == "a") 
+      $a : Duda() 
+      eval($a.get_apli() == true)   
+   then        
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Se ejecuta la tarea : NombreAplicacion2 ",InfoTraza.NivelTraza.debug));
+      TareaSincrona tarea = gestorTareas.crearTareaSincrona(NombreAplicacion2.class); 
+      tarea.ejecutar(VocabularioGestionCitas.IdentRecursoComunicacionChat);
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Realizando el objetivo : "+$obj.getgoalId()+"  Ejecutando la tarea : "+ tarea.getIdentTarea() ,InfoTraza.NivelTraza.debug));
+      recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName());    
+      retract($notif); 
+end
+// =======================================================================
+
+
+// =======================================================================
+rule " Si recibe un mensaje sobre aplicacion pero falta el componente "   
+   when
+      $obj:ResponderDuda(state==Objetivo.SOLVING)
+      Focus(foco == $obj)
+      $notif : Notificacion(identInterlc : identNotificador , tipoNotificacion == "a") 
+      $a : Duda() 
+      eval($a.get_apli() == false) 
+      eval($a.get_comp() == false)     
+   then 
+      modify( $a ) {
+      set_apli(true) 
+      }         
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Se ejecuta la tarea : NombreAplicacion3 ",InfoTraza.NivelTraza.debug));
+      TareaSincrona tarea = gestorTareas.crearTareaSincrona(NombreAplicacion3.class); 
+      tarea.ejecutar(VocabularioGestionCitas.IdentRecursoComunicacionChat);
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Realizando el objetivo : "+$obj.getgoalId()+"  Ejecutando la tarea : "+ tarea.getIdentTarea() ,InfoTraza.NivelTraza.debug));
+      recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName());    
+      retract($notif); 
+end
+// =======================================================================
+
+
+// =======================================================================
+rule " Si recibe un saludo "
+   when
+      $obj:ResponderDuda(state==Objetivo.SOLVING)
+      Focus(foco == $obj)
+      $notif : Notificacion(identInterlc : identNotificador , tipoNotificacion == "s") 
+      $a : Duda() 
+      eval($a.get_salu() == false)    
+   then
+       modify( $a ) {
+       set_salu(true) 
+       }
+      // $a.set_salu(true);         
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Se ejecuta la tarea : Saludar ",InfoTraza.NivelTraza.debug));
+      TareaSincrona tarea = gestorTareas.crearTareaSincrona(Saludar.class); 
+      tarea.ejecutar(VocabularioGestionCitas.IdentRecursoComunicacionChat);
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Realizando el objetivo : "+$obj.getgoalId()+"  Ejecutando la tarea : "+ tarea.getIdentTarea() ,InfoTraza.NivelTraza.debug));
+      recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName());    
+      retract($notif);
+end
+// =======================================================================
+
+
+// =======================================================================
+rule " Si el usuario vuelve a saludar "
+   when
+      $obj:ResponderDuda(state==Objetivo.SOLVING)
+      Focus(foco == $obj)
+      $notif : Notificacion(identInterlc : identNotificador , tipoNotificacion == "s") 
+      $a : Duda() 
+      eval($a.get_salu() == true)    
+   then         
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Se ejecuta la tarea : Saludar2 ",InfoTraza.NivelTraza.debug));
+      TareaSincrona tarea = gestorTareas.crearTareaSincrona(Saludar2.class); 
+      tarea.ejecutar(VocabularioGestionCitas.IdentRecursoComunicacionChat);
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Realizando el objetivo : "+$obj.getgoalId()+"  Ejecutando la tarea : "+ tarea.getIdentTarea() ,InfoTraza.NivelTraza.debug));
+      recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName());    
+      retract($notif);
+end
+// =======================================================================
+
+
+// =======================================================================
+rule " Si recibe una despedida "
+   when
+      $obj:ResponderDuda(state==Objetivo.SOLVING)
+      Focus(foco == $obj)
+      $notif : Notificacion(identInterlc : identNotificador , tipoNotificacion == "d") 
+      $a : Duda() 
+      eval($a.get_desp() == false) 
+  then
+      modify( $a ) {
+      set_desp(true) 
+      }  
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Se ejecuta la tarea : Despedida ",InfoTraza.NivelTraza.debug));
+      TareaSincrona tarea = gestorTareas.crearTareaSincrona(Despedida.class); 
+      tarea.ejecutar(VocabularioGestionCitas.IdentRecursoComunicacionChat);
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Realizando el objetivo : "+$obj.getgoalId()+"  Ejecutando la tarea : "+ tarea.getIdentTarea() ,InfoTraza.NivelTraza.debug));
+      recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName());    
+      retract($notif);
+end
+// =======================================================================
+
+
+// =======================================================================
+rule " Si el usuario vuelve a despedirse "
+   when
+      $obj:ResponderDuda(state==Objetivo.SOLVING)
+      Focus(foco == $obj)
+      $notif : Notificacion(identInterlc : identNotificador , tipoNotificacion == "d") 
+      $a : Duda() 
+      eval($a.get_desp() == true) 
+  then      
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Se ejecuta la tarea : Despedida2 ",InfoTraza.NivelTraza.debug));
+      TareaSincrona tarea = gestorTareas.crearTareaSincrona(Despedida2.class); 
+      tarea.ejecutar(VocabularioGestionCitas.IdentRecursoComunicacionChat);
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Realizando el objetivo : "+$obj.getgoalId()+"  Ejecutando la tarea : "+ tarea.getIdentTarea() ,InfoTraza.NivelTraza.debug));
+      recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName()); 
+      retract($notif);   
+end
+// =======================================================================
+
+
+// =======================================================================
+rule " Si recibe una frase sin semantica "
+   when
+      $obj:ResponderDuda(state==Objetivo.SOLVING)
+      Focus(foco == $obj)
+      $notif : Notificacion(identInterlc : identNotificador , tipoNotificacion == "si") 
+      $a : Duda() 
+      eval($a.get_nulo() == false)    
+   then
+      modify( $a ) {
+      set_nulo(true) 
+      }  
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Se ejecuta la tarea : RespSinSema ",InfoTraza.NivelTraza.debug));
+      TareaSincrona tarea = gestorTareas.crearTareaSincrona(RespSinSema.class); 
+      tarea.ejecutar(VocabularioGestionCitas.IdentRecursoComunicacionChat);
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Realizando el objetivo : "+$obj.getgoalId()+"  Ejecutando la tarea : "+ tarea.getIdentTarea() ,InfoTraza.NivelTraza.debug));
+      recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName());    
+      retract($notif);
+end
+// =======================================================================
+
+
+// =======================================================================
+rule " Si recibe otra frase sin semantica "
+   when
+      $obj:ResponderDuda(state==Objetivo.SOLVING)
+      Focus(foco == $obj)
+      $notif : Notificacion(identInterlc : identNotificador , tipoNotificacion == "si") 
+      $a : Duda() 
+      eval($a.get_nulo() == true)    
+   then       
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Se ejecuta la tarea : SeguSinSema",InfoTraza.NivelTraza.debug));
+      TareaSincrona tarea = gestorTareas.crearTareaSincrona(SeguSinSema.class); 
+      tarea.ejecutar(VocabularioGestionCitas.IdentRecursoComunicacionChat);
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Realizando el objetivo : "+$obj.getgoalId()+"  Ejecutando la tarea : "+ tarea.getIdentTarea() ,InfoTraza.NivelTraza.debug));
+      recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName());    
+      retract($notif);
+end
+// =======================================================================
+
+
+// =======================================================================
+rule " Dar respuesta "
+   when
+      $obj:ResponderDuda(state==Objetivo.SOLVING)
+      Focus(foco == $obj)
+      $a : Duda() 
+      eval($a.get_comp() == true)
+      eval($a.get_apli() == true)
+      eval($a.get_resp() == false)    
+   then   
+      modify( $a ) {
+      set_resp(true) 
+      } 
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Se ejecuta la tarea : Entender",InfoTraza.NivelTraza.debug));
+      TareaSincrona tarea = gestorTareas.crearTareaSincrona(Entender.class); 
+      tarea.ejecutar(VocabularioGestionCitas.IdentRecursoComunicacionChat);
+      recursoTrazas.aceptaNuevaTraza(new InfoTraza(agentId,"Realizando el objetivo : "+$obj.getgoalId()+"  Ejecutando la tarea : "+ tarea.getIdentTarea() ,InfoTraza.NivelTraza.debug));
+      recursoTrazas.aceptaNuevaTrazaEjecReglas(agentId," EJECUTO LA REGLA: " + drools.getRule().getName());    
+   end
+// =======================================================================
+
